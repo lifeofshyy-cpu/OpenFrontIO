@@ -52,18 +52,18 @@ const uint GLYPH_ROWS[192] = uint[192](
   0x00000015u, 0x51000000u, 0x00000155u, 0x54100000u,
   0x00000125u, 0x54410000u, 0x00001225u, 0x44410000u,
   0x00001222u, 0x34441000u, 0x00012223u, 0x34441000u,
-  0x00012232u, 0x34444100u, 0x00122233u, 0x43444100u,
-  0x00122333u, 0x44444410u, 0x01222333u, 0x43444410u,
-  0x01223333u, 0x44444441u, 0x12223334u, 0x43444441u,
-  0x12333334u, 0x44444441u, 0x01111111u, 0x11111110u,
+  0x00012232u, 0x34444100u, 0x00122233u, 0x43444400u,
+  0x00222333u, 0x44444440u, 0x02223333u, 0x43444446u,
+  0x02232333u, 0x44434466u, 0x62363343u, 0x46446460u,
+  0x06360634u, 0x60460660u, 0x00600600u, 0x60606000u,
   0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u,
   0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u,
   0x00000000u, 0x00000000u, 0x00000011u, 0x10000000u,
   0x00000122u, 0x21000000u, 0x00001222u, 0x34110000u,
-  0x00012223u, 0x34441000u, 0x00012233u, 0x34444100u,
-  0x00122233u, 0x43444100u, 0x00122333u, 0x44444410u,
-  0x01222334u, 0x43444410u, 0x01223334u, 0x44444441u,
-  0x12233334u, 0x44444441u, 0x01111111u, 0x11111110u,
+  0x00012223u, 0x34441000u, 0x00012233u, 0x34444000u,
+  0x00222333u, 0x43444400u, 0x02223333u, 0x44444460u,
+  0x02232334u, 0x43444660u, 0x62363343u, 0x46446460u,
+  0x06360634u, 0x60460660u, 0x00600600u, 0x60606000u,
   0x00000000u, 0x00000000u, 0x00000001u, 0x10000000u,
   0x00000012u, 0x21000000u, 0x00000122u, 0x34100000u,
   0x00001222u, 0x34410000u, 0x00000123u, 0x34100000u,
@@ -155,7 +155,7 @@ float elevation(vec2 tile) {
 }
 
 // Sprite pixel: 0 transparent, 1 outline, 2 light, 3 main, 4 shadow,
-// 5 white. Two uints per row, 4 bits per pixel.
+// 5 white, 6 shaded grass. Two uints per row, 4 bits per pixel.
 uint glyphPixel(int id, int x, int y) {
   uint bits = GLYPH_ROWS[id * 32 + y * 2 + (x >> 3)];
   return (bits >> uint(4 * (7 - (x & 7)))) & 15u;
@@ -163,11 +163,12 @@ uint glyphPixel(int id, int x, int y) {
 
 vec3 glyphColor(int id, uint v) {
   if (v == 5u) return vec3(0.97, 0.98, 1.0);
+  if (v == 6u) return uPlains * 0.78;
   vec3 base = uPlains;
   if (id == G_MOUNTAIN || id == G_CRAG) base = uMountain;
   if (id == G_PINE || id == G_TREE) base = uHighland;
   if (id == G_GRASS) return uPlains * 0.72;
-  if (v == 1u) return base * 0.36;
+  if (v == 1u) return base * 0.45;
   if (v == 2u) {
     // Foliage lightens towards the grass; rock just gets brighter.
     return base == uHighland ? mix(base, uPlains, 0.6) : min(base * 1.4, 1.0);

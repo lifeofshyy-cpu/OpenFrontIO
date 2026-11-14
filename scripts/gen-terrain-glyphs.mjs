@@ -7,6 +7,7 @@
 // Each glyph is 16x16, 4 bits per pixel, two uints per row (left half, then
 // right half):
 //   .  transparent   #  outline   o  light   +  main   x  shadow   w  white
+//   g  shaded grass
 // Rows shorter than 16 are padded on the right; missing rows are added on top.
 import fs from "node:fs";
 import path from "node:path";
@@ -14,7 +15,9 @@ import { fileURLToPath } from "node:url";
 
 const GLYPHS = {
   // 0: mountain, lit from the upper left: snow tip, light left face, a
-  // broken ridge, shadowed right face.
+  // broken ridge, shadowed right face. There is no base line: the outline
+  // stops partway down and the foot breaks up into the grass ("g" is
+  // shaded grass), so the peak rises out of the ground.
   mountain: `
 .......##.......
 ......#ww#......
@@ -24,26 +27,26 @@ const GLYPHS = {
 ....#ooo+xxx#...
 ...#ooo++xxx#...
 ...#oo+o+xxxx#..
-..#ooo++x+xxx#..
-..#oo+++xxxxxx#.
-.#ooo+++x+xxxx#.
-.#oo++++xxxxxxx#
-#ooo+++xx+xxxxx#
-#o+++++xxxxxxxx#
-.##############.`,
+..#ooo++x+xxxx..
+..ooo+++xxxxxxx.
+.ooo++++x+xxxxxg
+.oo+o+++xxx+xxgg
+go+g++x+xgxxgxg.
+.g+g.g+xg.xg.gg.
+..g..g..g.g.g...`,
   // 1: lower, broader mountain with no snow
   crag: `
 ......###.......
 .....#ooo#......
 ....#ooo+x##....
 ...#ooo++xxx#...
-...#oo+++xxxx#..
-..#ooo++x+xxx#..
-..#oo+++xxxxxx#.
-.#ooo++xx+xxxx#.
-.#oo+++xxxxxxxx#
-#oo++++xxxxxxxx#
-.##############.`,
+...#oo+++xxxx...
+..ooo+++x+xxxx..
+.ooo++++xxxxxxg.
+.oo+o++xx+xxxgg.
+go+g++x+xgxxgxg.
+.g+g.g+xg.xg.gg.
+..g..g..g.g.g...`,
   // 2: pine. "o" lit needles, "+" needles, "x" shaded needles.
   pine: `
 .......##.......
@@ -95,7 +98,7 @@ const GLYPHS = {
 ................`,
 };
 
-const CODE = { ".": 0, "#": 1, o: 2, "+": 3, x: 4, w: 5 };
+const CODE = { ".": 0, "#": 1, o: 2, "+": 3, x: 4, w: 5, g: 6 };
 const rows = [];
 for (const [name, art] of Object.entries(GLYPHS)) {
   const lines = art.split("\n").filter((l) => l.length > 0);
