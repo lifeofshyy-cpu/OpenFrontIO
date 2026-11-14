@@ -25,9 +25,9 @@ import {
 } from "../utils/GlUtils";
 
 // Land colours used when the caller supplies none.
-const DEFAULT_PLAINS = [154, 173, 69] as const;
-const DEFAULT_HIGHLAND = [220, 184, 81] as const;
-const DEFAULT_MOUNTAIN = [228, 210, 162] as const;
+const DEFAULT_PLAINS = [127, 154, 54] as const;
+const DEFAULT_HIGHLAND = [220, 174, 60] as const;
+const DEFAULT_MOUNTAIN = [222, 203, 160] as const;
 
 // ---------------------------------------------------------------------------
 // TerrainPass
@@ -41,7 +41,8 @@ export class TerrainPass {
   private uTerrain: WebGLUniformLocation | null;
   private uTerrainBytes: WebGLUniformLocation | null;
   private uElevation: WebGLUniformLocation | null;
-  // Smoothed land elevation (R8); only built for the fantasy-map look.
+  // Smoothed elevation and land share (RG8); only built for the
+  // fantasy-map look.
   private elevationTex: WebGLTexture | null = null;
   private uPlains: WebGLUniformLocation | null;
   private uHighland: WebGLUniformLocation | null;
@@ -86,8 +87,8 @@ export class TerrainPass {
       this.elevationTex = createTexture2D(gl, {
         width: field.width,
         height: field.height,
-        internalFormat: gl.R8,
-        format: gl.RED,
+        internalFormat: gl.RG8,
+        format: gl.RG,
         type: gl.UNSIGNED_BYTE,
         data: field.data,
         filter: gl.LINEAR,
