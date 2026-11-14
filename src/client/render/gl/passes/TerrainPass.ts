@@ -25,9 +25,9 @@ import {
 } from "../utils/GlUtils";
 
 // Land colours used when the caller supplies none.
-const DEFAULT_PLAINS = [134, 185, 126] as const;
-const DEFAULT_HIGHLAND = [74, 138, 85] as const;
-const DEFAULT_MOUNTAIN = [185, 182, 230] as const;
+const DEFAULT_PLAINS = [154, 173, 69] as const;
+const DEFAULT_HIGHLAND = [220, 184, 81] as const;
+const DEFAULT_MOUNTAIN = [228, 210, 162] as const;
 
 // ---------------------------------------------------------------------------
 // TerrainPass
@@ -66,7 +66,7 @@ export class TerrainPass {
     mapH: number,
     terrainColors?: TerrainColorOverrides,
     // Raw terrain bytes (R8UI), owned by the caller. When given, the shader
-    // paints the fantasy-map look from it (zoned land, ink coasts, sprite
+    // paints the fantasy-map look from it (watercolour land, ink coasts and
     // glyphs); without it the baked terrain colours are drawn as-is.
     private terrainBytesTex: WebGLTexture | null = null,
   ) {
