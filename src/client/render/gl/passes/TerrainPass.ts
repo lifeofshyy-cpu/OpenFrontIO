@@ -23,6 +23,11 @@ import {
   shaderSrc,
 } from "../utils/GlUtils";
 
+// Land colours used when the caller supplies none.
+const DEFAULT_PLAINS = [154, 197, 147] as const;
+const DEFAULT_HIGHLAND = [230, 207, 122] as const;
+const DEFAULT_MOUNTAIN = [183, 179, 227] as const;
+
 // ---------------------------------------------------------------------------
 // TerrainPass
 // ---------------------------------------------------------------------------
@@ -34,6 +39,9 @@ export class TerrainPass {
   private uCamera: WebGLUniformLocation;
   private uTerrain: WebGLUniformLocation | null;
   private uTerrainBytes: WebGLUniformLocation | null;
+  private uPlains: WebGLUniformLocation | null;
+  private uHighland: WebGLUniformLocation | null;
+  private uMountain: WebGLUniformLocation | null;
   private mapW: number;
   private mapH: number;
   // Base ocean (deep water) color; reused by applyTerrainRects and rebuilds.
@@ -54,8 +62,8 @@ export class TerrainPass {
     mapH: number,
     terrainColors?: TerrainColorOverrides,
     // Raw terrain bytes (R8UI), owned by the caller. When given, the shader
-    // inks fantasy-map glyphs (mountains, hills, trees, waves) from it;
-    // without it only the parchment treatment is applied.
+    // paints the fantasy-map look from it (banded land, ink coasts, sprite
+    // glyphs); without it the baked terrain colours are drawn as-is.
     private terrainBytesTex: WebGLTexture | null = null,
   ) {
     this.mapW = mapW;
@@ -74,6 +82,9 @@ export class TerrainPass {
     this.uCamera = gl.getUniformLocation(this.program, "uCamera")!;
     this.uTerrain = gl.getUniformLocation(this.program, "uTerrain");
     this.uTerrainBytes = gl.getUniformLocation(this.program, "uTerrainBytes");
+    this.uPlains = gl.getUniformLocation(this.program, "uPlains");
+    this.uHighland = gl.getUniformLocation(this.program, "uHighland");
+    this.uMountain = gl.getUniformLocation(this.program, "uMountain");
 
     this.tex = createTexture2D(gl, {
       width: mapW,
@@ -168,6 +179,13 @@ export class TerrainPass {
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, this.terrainBytesTex);
       gl.uniform1i(this.uTerrainBytes, 1);
+      const c = this.terrainColors;
+      const [pr, pg, pb] = c?.plainsColor ?? DEFAULT_PLAINS;
+      const [hr, hg, hb] = c?.highlandColor ?? DEFAULT_HIGHLAND;
+      const [mr, mg, mb] = c?.mountainColor ?? DEFAULT_MOUNTAIN;
+      gl.uniform3f(this.uPlains, pr / 255, pg / 255, pb / 255);
+      gl.uniform3f(this.uHighland, hr / 255, hg / 255, hb / 255);
+      gl.uniform3f(this.uMountain, mr / 255, mg / 255, mb / 255);
     }
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.tex);

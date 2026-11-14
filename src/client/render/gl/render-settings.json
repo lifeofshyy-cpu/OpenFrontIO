@@ -17,12 +17,12 @@
     "nameDebug": false
   },
   "terrain": {
-    "backgroundColor": "#2b2118",
-    "oceanColor": "#8fa39a",
-    "sandColor": "#ecdcb0",
-    "plainsColor": "#e3cf9f",
-    "highlandColor": "#d2b582",
-    "mountainColor": "#a98a62"
+    "backgroundColor": "#e6d6a8",
+    "oceanColor": "#efe1b8",
+    "sandColor": "#c9d48f",
+    "plainsColor": "#9ac593",
+    "highlandColor": "#e6cf7a",
+    "mountainColor": "#b7b3e3"
   },
   "falloutBloom": {
     "broilSpeedCold": 0.0018,
