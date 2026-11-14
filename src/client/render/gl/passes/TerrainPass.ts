@@ -27,7 +27,7 @@ import {
 // Land colours used when the caller supplies none.
 const DEFAULT_PLAINS = [92, 184, 102] as const;
 const DEFAULT_HIGHLAND = [31, 122, 92] as const;
-const DEFAULT_MOUNTAIN = [154, 165, 177] as const;
+const DEFAULT_MOUNTAIN = [150, 124, 105] as const;
 
 // ---------------------------------------------------------------------------
 // TerrainPass
