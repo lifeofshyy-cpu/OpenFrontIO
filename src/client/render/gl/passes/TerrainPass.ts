@@ -25,9 +25,9 @@ import {
 } from "../utils/GlUtils";
 
 // Land colours used when the caller supplies none.
-const DEFAULT_PLAINS = [127, 154, 54] as const;
-const DEFAULT_HIGHLAND = [220, 174, 60] as const;
-const DEFAULT_MOUNTAIN = [222, 203, 160] as const;
+const DEFAULT_PLAINS = [92, 184, 102] as const;
+const DEFAULT_HIGHLAND = [31, 122, 92] as const;
+const DEFAULT_MOUNTAIN = [154, 165, 177] as const;
 
 // ---------------------------------------------------------------------------
 // TerrainPass
@@ -41,8 +41,7 @@ export class TerrainPass {
   private uTerrain: WebGLUniformLocation | null;
   private uTerrainBytes: WebGLUniformLocation | null;
   private uElevation: WebGLUniformLocation | null;
-  // Smoothed elevation and land share (RG8); only built for the
-  // fantasy-map look.
+  // Smoothed land elevation (R8); only built for the fantasy-map look.
   private elevationTex: WebGLTexture | null = null;
   private uPlains: WebGLUniformLocation | null;
   private uHighland: WebGLUniformLocation | null;
@@ -67,8 +66,8 @@ export class TerrainPass {
     mapH: number,
     terrainColors?: TerrainColorOverrides,
     // Raw terrain bytes (R8UI), owned by the caller. When given, the shader
-    // paints the fantasy-map look from it (watercolour land, ink coasts and
-    // glyphs); without it the baked terrain colours are drawn as-is.
+    // paints the fantasy-map look from it (flat bright land, outlined
+    // coasts, sprite glyphs); without it the baked colours are drawn as-is.
     private terrainBytesTex: WebGLTexture | null = null,
   ) {
     this.mapW = mapW;
@@ -87,8 +86,8 @@ export class TerrainPass {
       this.elevationTex = createTexture2D(gl, {
         width: field.width,
         height: field.height,
-        internalFormat: gl.RG8,
-        format: gl.RG,
+        internalFormat: gl.R8,
+        format: gl.RED,
         type: gl.UNSIGNED_BYTE,
         data: field.data,
         filter: gl.LINEAR,
