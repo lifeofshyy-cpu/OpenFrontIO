@@ -267,6 +267,18 @@ export class GPURenderer {
     // Bake once and let the array go — nothing below retains map-sized
     // terrain bytes; re-bakes call terrainSource again.
     const terrainBytes = terrainSource();
+
+    // --- Terrain bytes R8UI texture (shared by the terrain glyphs and the
+    // map-layer passes) ---
+    this.terrainBytesTex = createTexture2D(gl, {
+      width: mapW,
+      height: mapH,
+      internalFormat: gl.R8UI,
+      format: gl.RED_INTEGER,
+      type: gl.UNSIGNED_BYTE,
+      data: terrainBytes,
+      filter: gl.NEAREST,
+    });
     this.terrainPass = new TerrainPass(
       gl,
       terrainSource,
@@ -284,18 +296,8 @@ export class GPURenderer {
         mountainColor:
           hexToRgb(this.settings.terrain.mountainColor) ?? undefined,
       },
+      this.terrainBytesTex,
     );
-
-    // --- Terrain bytes R8UI texture (shared by map-layer passes) ---
-    this.terrainBytesTex = createTexture2D(gl, {
-      width: mapW,
-      height: mapH,
-      internalFormat: gl.R8UI,
-      format: gl.RED_INTEGER,
-      type: gl.UNSIGNED_BYTE,
-      data: terrainBytes,
-      filter: gl.NEAREST,
-    });
 
     // --- Shared palette texture (RGBA32F, 4096×2) ---
     this.paletteData = paletteData;
@@ -995,6 +997,29 @@ export class GPURenderer {
   applyTerrainRects(rects: readonly TerrainRect[], bytes: Uint8Array): void {
     if (rects.length === 0) return;
     this.terrainPass.applyTerrainRects(rects, bytes);
+    // Keep the raw terrain bytes current too, so glyphs and map layers stop
+    // drawing land features on tiles that have become water.
+    if (this.terrainBytesTex) {
+      const gl = this.gl;
+      gl.bindTexture(gl.TEXTURE_2D, this.terrainBytesTex);
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+      let offset = 0;
+      for (const r of rects) {
+        gl.texSubImage2D(
+          gl.TEXTURE_2D,
+          0,
+          r.x,
+          r.y,
+          r.w,
+          r.h,
+          gl.RED_INTEGER,
+          gl.UNSIGNED_BYTE,
+          bytes,
+          offset,
+        );
+        offset += r.w * r.h;
+      }
+    }
     this.railroadPass.applyTerrainRects(rects, bytes);
   }
 

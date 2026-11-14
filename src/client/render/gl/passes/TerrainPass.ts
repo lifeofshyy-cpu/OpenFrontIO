@@ -32,6 +32,8 @@ export class TerrainPass {
   private tex: WebGLTexture;
   private vao: WebGLVertexArrayObject;
   private uCamera: WebGLUniformLocation;
+  private uTerrain: WebGLUniformLocation | null;
+  private uTerrainBytes: WebGLUniformLocation | null;
   private mapW: number;
   private mapH: number;
   // Base ocean (deep water) color; reused by applyTerrainRects and rebuilds.
@@ -51,6 +53,10 @@ export class TerrainPass {
     mapW: number,
     mapH: number,
     terrainColors?: TerrainColorOverrides,
+    // Raw terrain bytes (R8UI), owned by the caller. When given, the shader
+    // inks fantasy-map glyphs (mountains, hills, trees, waves) from it;
+    // without it only the parchment treatment is applied.
+    private terrainBytesTex: WebGLTexture | null = null,
   ) {
     this.mapW = mapW;
     this.mapH = mapH;
@@ -58,10 +64,16 @@ export class TerrainPass {
     this.program = createProgram(
       gl,
       shaderSrc(terrainVertSrc, { MAP_W: mapW, MAP_H: mapH }),
-      terrainFragSrc,
+      shaderSrc(terrainFragSrc, {
+        MAP_W: mapW,
+        MAP_H: mapH,
+        FANTASY_GLYPHS: terrainBytesTex ? 1 : 0,
+      }),
       "TerrainPass",
     );
     this.uCamera = gl.getUniformLocation(this.program, "uCamera")!;
+    this.uTerrain = gl.getUniformLocation(this.program, "uTerrain");
+    this.uTerrainBytes = gl.getUniformLocation(this.program, "uTerrainBytes");
 
     this.tex = createTexture2D(gl, {
       width: mapW,
@@ -152,8 +164,14 @@ export class TerrainPass {
     gl.useProgram(this.program);
     gl.uniformMatrix3fv(this.uCamera, false, cameraMatrix);
 
+    if (this.terrainBytesTex) {
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, this.terrainBytesTex);
+      gl.uniform1i(this.uTerrainBytes, 1);
+    }
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.tex);
+    gl.uniform1i(this.uTerrain, 0);
 
     gl.bindVertexArray(this.vao);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
