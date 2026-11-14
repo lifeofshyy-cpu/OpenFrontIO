@@ -16,6 +16,7 @@ import {
   encodeTerrainTile,
   TerrainColorOverrides,
 } from "../utils/ColorUtils";
+import { buildElevationField, ELEVATION_SCALE } from "../utils/ElevationField";
 import {
   createMapQuad,
   createProgram,
@@ -24,9 +25,9 @@ import {
 } from "../utils/GlUtils";
 
 // Land colours used when the caller supplies none.
-const DEFAULT_PLAINS = [154, 197, 147] as const;
-const DEFAULT_HIGHLAND = [230, 207, 122] as const;
-const DEFAULT_MOUNTAIN = [183, 179, 227] as const;
+const DEFAULT_PLAINS = [134, 185, 126] as const;
+const DEFAULT_HIGHLAND = [74, 138, 85] as const;
+const DEFAULT_MOUNTAIN = [185, 182, 230] as const;
 
 // ---------------------------------------------------------------------------
 // TerrainPass
@@ -39,6 +40,9 @@ export class TerrainPass {
   private uCamera: WebGLUniformLocation;
   private uTerrain: WebGLUniformLocation | null;
   private uTerrainBytes: WebGLUniformLocation | null;
+  private uElevation: WebGLUniformLocation | null;
+  // Smoothed land elevation (R8); only built for the fantasy-map look.
+  private elevationTex: WebGLTexture | null = null;
   private uPlains: WebGLUniformLocation | null;
   private uHighland: WebGLUniformLocation | null;
   private uMountain: WebGLUniformLocation | null;
@@ -62,26 +66,43 @@ export class TerrainPass {
     mapH: number,
     terrainColors?: TerrainColorOverrides,
     // Raw terrain bytes (R8UI), owned by the caller. When given, the shader
-    // paints the fantasy-map look from it (banded land, ink coasts, sprite
+    // paints the fantasy-map look from it (zoned land, ink coasts, sprite
     // glyphs); without it the baked terrain colours are drawn as-is.
     private terrainBytesTex: WebGLTexture | null = null,
   ) {
     this.mapW = mapW;
     this.mapH = mapH;
     this.terrainColors = terrainColors;
+    const fragDefines: Record<string, number> = {
+      MAP_W: mapW,
+      MAP_H: mapH,
+      FANTASY_GLYPHS: terrainBytesTex ? 1 : 0,
+    };
+    if (terrainBytesTex) {
+      const field = buildElevationField(terrainBytes, mapW, mapH);
+      fragDefines.ELEV_W = field.width * ELEVATION_SCALE;
+      fragDefines.ELEV_H = field.height * ELEVATION_SCALE;
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+      this.elevationTex = createTexture2D(gl, {
+        width: field.width,
+        height: field.height,
+        internalFormat: gl.R8,
+        format: gl.RED,
+        type: gl.UNSIGNED_BYTE,
+        data: field.data,
+        filter: gl.LINEAR,
+      });
+    }
     this.program = createProgram(
       gl,
       shaderSrc(terrainVertSrc, { MAP_W: mapW, MAP_H: mapH }),
-      shaderSrc(terrainFragSrc, {
-        MAP_W: mapW,
-        MAP_H: mapH,
-        FANTASY_GLYPHS: terrainBytesTex ? 1 : 0,
-      }),
+      shaderSrc(terrainFragSrc, fragDefines),
       "TerrainPass",
     );
     this.uCamera = gl.getUniformLocation(this.program, "uCamera")!;
     this.uTerrain = gl.getUniformLocation(this.program, "uTerrain");
     this.uTerrainBytes = gl.getUniformLocation(this.program, "uTerrainBytes");
+    this.uElevation = gl.getUniformLocation(this.program, "uElevation");
     this.uPlains = gl.getUniformLocation(this.program, "uPlains");
     this.uHighland = gl.getUniformLocation(this.program, "uHighland");
     this.uMountain = gl.getUniformLocation(this.program, "uMountain");
@@ -179,6 +200,9 @@ export class TerrainPass {
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, this.terrainBytesTex);
       gl.uniform1i(this.uTerrainBytes, 1);
+      gl.activeTexture(gl.TEXTURE2);
+      gl.bindTexture(gl.TEXTURE_2D, this.elevationTex);
+      gl.uniform1i(this.uElevation, 2);
       const c = this.terrainColors;
       const [pr, pg, pb] = c?.plainsColor ?? DEFAULT_PLAINS;
       const [hr, hg, hb] = c?.highlandColor ?? DEFAULT_HIGHLAND;
@@ -199,6 +223,7 @@ export class TerrainPass {
     const gl = this.gl;
     gl.deleteProgram(this.program);
     gl.deleteTexture(this.tex);
+    if (this.elevationTex) gl.deleteTexture(this.elevationTex);
     // VAO + buffer leak is acceptable on dispose (context is being destroyed)
   }
 }
