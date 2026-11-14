@@ -8,6 +8,7 @@
  * so each terrain cell stays pixel-crisp at every zoom level.
  */
 
+import { assetUrl } from "@openfront/shared/AssetUrls";
 import type { TerrainRect } from "../../types";
 import terrainFragSrc from "../shaders/terrain/terrain.frag.glsl?raw";
 import terrainVertSrc from "../shaders/terrain/terrain.vert.glsl?raw";
@@ -24,10 +25,10 @@ import {
   shaderSrc,
 } from "../utils/GlUtils";
 
-// Land colours used when the caller supplies none.
-const DEFAULT_PLAINS = [92, 184, 102] as const;
-const DEFAULT_HIGHLAND = [31, 122, 92] as const;
-const DEFAULT_MOUNTAIN = [150, 124, 105] as const;
+// Land colour used when the caller supplies none.
+const DEFAULT_PLAINS = [142, 194, 60] as const;
+
+const terrainSpritesUrl = assetUrl("atlases/terrain-sprites.png");
 
 // ---------------------------------------------------------------------------
 // TerrainPass
@@ -44,8 +45,11 @@ export class TerrainPass {
   // Smoothed land elevation (R8); only built for the fantasy-map look.
   private elevationTex: WebGLTexture | null = null;
   private uPlains: WebGLUniformLocation | null;
-  private uHighland: WebGLUniformLocation | null;
-  private uMountain: WebGLUniformLocation | null;
+  private uSprites: WebGLUniformLocation | null;
+  // Terrain sprite atlas (mountains, trees, hills, boulders). A transparent
+  // placeholder until the image has loaded.
+  private spriteTex: WebGLTexture | null = null;
+  private disposed = false;
   private mapW: number;
   private mapH: number;
   // Base ocean (deep water) color; reused by applyTerrainRects and rebuilds.
@@ -92,6 +96,16 @@ export class TerrainPass {
         data: field.data,
         filter: gl.LINEAR,
       });
+      this.spriteTex = createTexture2D(gl, {
+        width: 1,
+        height: 1,
+        internalFormat: gl.RGBA8,
+        format: gl.RGBA,
+        type: gl.UNSIGNED_BYTE,
+        data: new Uint8Array(4),
+        filter: gl.NEAREST,
+      });
+      void this.loadSprites();
     }
     this.program = createProgram(
       gl,
@@ -104,8 +118,7 @@ export class TerrainPass {
     this.uTerrainBytes = gl.getUniformLocation(this.program, "uTerrainBytes");
     this.uElevation = gl.getUniformLocation(this.program, "uElevation");
     this.uPlains = gl.getUniformLocation(this.program, "uPlains");
-    this.uHighland = gl.getUniformLocation(this.program, "uHighland");
-    this.uMountain = gl.getUniformLocation(this.program, "uMountain");
+    this.uSprites = gl.getUniformLocation(this.program, "uSprites");
 
     this.tex = createTexture2D(gl, {
       width: mapW,
@@ -124,6 +137,23 @@ export class TerrainPass {
    * Replace the base terrain colors and re-upload the whole terrain texture.
    * Called when the user changes the terrain colors in graphics settings.
    */
+  /** Load the terrain sprite atlas and swap it in for the placeholder. */
+  private async loadSprites(): Promise<void> {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = terrainSpritesUrl;
+    try {
+      await img.decode();
+    } catch {
+      // Without the atlas the map simply has no terrain sprites.
+      return;
+    }
+    if (this.disposed || !this.spriteTex) return;
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, this.spriteTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+  }
+
   setTerrainColors(terrainColors?: TerrainColorOverrides): void {
     this.terrainColors = terrainColors;
     const gl = this.gl;
@@ -205,11 +235,10 @@ export class TerrainPass {
       gl.uniform1i(this.uElevation, 2);
       const c = this.terrainColors;
       const [pr, pg, pb] = c?.plainsColor ?? DEFAULT_PLAINS;
-      const [hr, hg, hb] = c?.highlandColor ?? DEFAULT_HIGHLAND;
-      const [mr, mg, mb] = c?.mountainColor ?? DEFAULT_MOUNTAIN;
       gl.uniform3f(this.uPlains, pr / 255, pg / 255, pb / 255);
-      gl.uniform3f(this.uHighland, hr / 255, hg / 255, hb / 255);
-      gl.uniform3f(this.uMountain, mr / 255, mg / 255, mb / 255);
+      gl.activeTexture(gl.TEXTURE3);
+      gl.bindTexture(gl.TEXTURE_2D, this.spriteTex);
+      gl.uniform1i(this.uSprites, 3);
     }
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.tex);
@@ -224,6 +253,8 @@ export class TerrainPass {
     gl.deleteProgram(this.program);
     gl.deleteTexture(this.tex);
     if (this.elevationTex) gl.deleteTexture(this.elevationTex);
+    if (this.spriteTex) gl.deleteTexture(this.spriteTex);
+    this.disposed = true;
     // VAO + buffer leak is acceptable on dispose (context is being destroyed)
   }
 }

@@ -26,7 +26,7 @@
     "backgroundColor": "#1b2a4a",
     "oceanColor": "#3f66cf",
     "sandColor": "#CCCB9E",
-    "plainsColor": "#5cb866",
+    "plainsColor": "#8ec23c",
     "highlandColor": "#1f7a5c",
     "mountainColor": "#967c69"
   },
@@ -128,22 +128,22 @@
     "railThickness": 1
   },
   "structure": {
-    "iconSize": 60,
+    "iconSize": 84,
     "dotsZoomThreshold": 1.2,
-    "dotScale": 0.3,
+    "dotScale": 0.21,
     "iconScaleFactorZoomedOut": 3,
     "iconGrowZoom": 7,
     "shapes": {
       "City": {
-        "scale": 1,
+        "scale": 1.1,
         "iconFill": 0.85
       },
       "Port": {
-        "scale": 1.08,
+        "scale": 1,
         "iconFill": 0.85
       },
       "Factory": {
-        "scale": 1.08,
+        "scale": 1,
         "iconFill": 0.85
       },
       "Defense Post": {
@@ -151,11 +151,11 @@
         "iconFill": 0.8
       },
       "SAM Launcher": {
-        "scale": 1.4,
+        "scale": 1,
         "iconFill": 1
       },
       "Missile Silo": {
-        "scale": 1.55,
+        "scale": 1.1,
         "iconFill": 0.85
       }
     },

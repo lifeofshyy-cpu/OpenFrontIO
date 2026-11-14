@@ -1,9 +1,10 @@
 /**
  * StructurePass — GPU-rendered structures with icon sprites.
  *
- * Zoomed in, each structure is a pixel-art building sprite (castle, harbour,
- * workshop, fort, watch tower, silo) with its flags and roofs in the owner's
- * colour, sampled from a 6-column atlas (scripts/gen-structure-sprites.mjs).
+ * Zoomed in, each structure is a pixel-art building sprite (castle, market,
+ * windmill, gatehouse, watch tower, keep) flying a flag in the owner's
+ * colour, sampled from a 6-column atlas of square cells. In the atlas, pure
+ * cyan pixels are the ones repainted in the owner's colour.
  * Zoomed out, it is a plain dot in the owner's colour, shaped by type.
  *
  * One instanced draw call per frame.

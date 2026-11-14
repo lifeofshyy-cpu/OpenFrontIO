@@ -204,15 +204,17 @@ void main() {
   vec3 finalRGB;
   float shapeAlpha;
   if (spriteMode) {
-    // The sprite fills the whole quad. Atlas cells are 16x16 art pixels;
-    // snap to them so the building stays crisp at any size.
+    // The sprite fills the whole quad; the atlas is unfiltered pixel art.
     vec2 cellUV = clamp(vLocalPos + 0.5, 0.0, 0.9999);
-    cellUV = (floor(cellUV * 16.0) + 0.5) / 16.0;
-    vec4 sprite = texture(uAtlas, vec2((vAtlasIdx + cellUV.x) / float(ATLAS_COLS), cellUV.y));
-    // Magenta marks the parts painted in the owner's colour; its brightness
-    // carries the shading.
-    bool ownerPaint = sprite.g < 0.1 && abs(sprite.r - sprite.b) < 0.1 && sprite.r > 0.3;
-    vec3 spriteRGB = ownerPaint ? ownerColor * sprite.r : sprite.rgb;
+    ivec2 atlasSize = textureSize(uAtlas, 0);
+    int cell = atlasSize.y;
+    ivec2 tc = ivec2(int(vAtlasIdx + 0.5) * cell + int(cellUV.x * float(cell)),
+      int(cellUV.y * float(cell)));
+    vec4 sprite = tc.x < atlasSize.x ? texelFetch(uAtlas, tc, 0) : vec4(0.0);
+    // Pure cyan marks the parts painted in the owner's colour (the flag);
+    // its brightness carries the shading.
+    bool ownerPaint = sprite.r < 0.1 && abs(sprite.g - sprite.b) < 0.1 && sprite.g > 0.3;
+    vec3 spriteRGB = ownerPaint ? ownerColor * sprite.g : sprite.rgb;
     if (vUnderConstruction > 0.5) {
       // Unfinished buildings are pale and colourless.
       float lum = dot(spriteRGB, vec3(0.299, 0.587, 0.114));
