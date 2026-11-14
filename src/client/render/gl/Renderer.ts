@@ -34,6 +34,7 @@ import { GLUnavailableError, initGL } from "./initGL";
 import { BarPass } from "./passes/BarPass";
 import { BorderComputePass } from "./passes/BorderComputePass";
 import { BorderStampPass } from "./passes/BorderStampPass";
+import { CloudPass } from "./passes/CloudPass";
 import { CoordinateGridPass } from "./passes/CoordinateGridPass";
 import { CrosshairPass } from "./passes/CrosshairPass";
 import { DefenseCoveragePass } from "./passes/DefenseCoveragePass";
@@ -147,6 +148,7 @@ export class GPURenderer {
   private heatManager: HeatManager;
   private affiliationPalette: AffiliationPalette;
   private coordinateGridPass: CoordinateGridPass;
+  private cloudPass: CloudPass;
   private spawnOverlayPass: SpawnOverlayPass;
   private smallPlayerGlowPass: SmallPlayerGlowPass;
   private inSpawnPhase = false;
@@ -642,6 +644,7 @@ export class GPURenderer {
       mapH,
       this.settings,
     );
+    this.cloudPass = new CloudPass(gl, mapW, mapH, this.settings);
     try {
       this.gridView = window.localStorage.getItem(GRID_VIEW_KEY) === "true";
     } catch {
@@ -1406,6 +1409,10 @@ export class GPURenderer {
       this.fxPass.draw(cam, zoom);
     }
 
+    // Decorative clouds sit above the map and its units but below the grid,
+    // names and world text, and stay out of the strategic alt view.
+    if (!this.altView) this.cloudPass.draw(cam);
+
     // Grid shows on either trigger; names hide only under alt-view (space
     // hold), not under the persistent M-key gridView toggle.
     if (this.gridView || this.altView) this.coordinateGridPass.draw(cam, zoom);
@@ -1518,6 +1525,7 @@ export class GPURenderer {
     this.heatManager.dispose();
     this.affiliationPalette.dispose();
     this.coordinateGridPass.dispose();
+    this.cloudPass.dispose();
     this.spawnOverlayPass.dispose();
     this.smallPlayerGlowPass.dispose();
     this.railroadPass.dispose();

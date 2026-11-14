@@ -16,6 +16,12 @@
     "bar": true,
     "nameDebug": false
   },
+  "clouds": {
+    "enabled": true,
+    "opacity": 0.8,
+    "speed": 1.5,
+    "coverage": 0.26
+  },
   "terrain": {
     "backgroundColor": "#1b2a4a",
     "oceanColor": "#3f66cf",

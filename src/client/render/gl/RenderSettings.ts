@@ -63,6 +63,16 @@ export interface RenderSettings {
     bar: boolean;
     nameDebug: boolean;
   };
+  /** Decorative clouds drifting over the map when zoomed out. */
+  clouds: {
+    enabled: boolean;
+    /** Overall strength, 0-1. */
+    opacity: number;
+    /** Drift speed in tiles per second. */
+    speed: number;
+    /** Share of the sky covered, 0-1. */
+    coverage: number;
+  };
   terrain: {
     /**
      * Map background color as a "#rrggbb" hex string — the clear color drawn
