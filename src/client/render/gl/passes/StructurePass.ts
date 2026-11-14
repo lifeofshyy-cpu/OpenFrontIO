@@ -1,12 +1,10 @@
 /**
  * StructurePass — GPU-rendered structures with icon sprites.
  *
- * Renders a filled circle in player color with a white icon overlay,
- * sampled from a pre-built 6-column sprite atlas (generate-sprite-atlases.mjs).
- *
- * Two LODs based on zoom:
- *   - zoom > 0.5: full icon with circle background
- *   - zoom <= 0.5: smaller dots (no icon detail)
+ * Zoomed in, each structure is a pixel-art building sprite (castle, harbour,
+ * workshop, fort, watch tower, silo) with its flags and roofs in the owner's
+ * colour, sampled from a 6-column atlas (scripts/gen-structure-sprites.mjs).
+ * Zoomed out, it is a plain dot in the owner's colour, shaped by type.
  *
  * One instanced draw call per frame.
  *
@@ -211,8 +209,8 @@ export class StructurePass {
     gl.uniform3f(this.uOutlineColor, 0, 0, 0);
     gl.uniform1i(this.uHighlightMask, 0);
 
-    // Create placeholder atlas texture (1×1 white pixel)
-    // Replaced asynchronously once SVGs load
+    // Create placeholder atlas texture (1×1 transparent pixel)
+    // Replaced asynchronously once the sprite atlas loads
     this.atlasTex = gl.createTexture()!;
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, this.atlasTex);
@@ -225,7 +223,7 @@ export class StructurePass {
       0,
       gl.RGBA,
       gl.UNSIGNED_BYTE,
-      new Uint8Array([255, 255, 255, 255]),
+      new Uint8Array([0, 0, 0, 0]),
     );
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -287,12 +285,9 @@ export class StructurePass {
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, this.atlasTex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
-    gl.generateMipmap(gl.TEXTURE_2D);
-    gl.texParameteri(
-      gl.TEXTURE_2D,
-      gl.TEXTURE_MIN_FILTER,
-      gl.LINEAR_MIPMAP_LINEAR,
-    );
+    // Pixel art with colour-keyed pixels: sample it unfiltered.
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   }
 
   setLocalPlayer(smallID: number): void {

@@ -137,23 +137,31 @@ void main() {
   float sdf = shapeSDF(vLocalPos, radius);
   float fw = fwidth(dist);
 
+  // Zoomed in, a structure is a pixel-art building sprite standing on the
+  // map; zoomed out it is a plain dot in its type's shape.
+  bool spriteMode = vZoom > uDotsThreshold;
+
   // When highlight is active, expand the region to include the outer outline band.
   float highlightOutlineW = uHighlightMask != 0 ? uHighlightOutlineW / vShapeScale : 0.0;
   float outerAlpha = 1.0 - smoothstep(-fw, fw, sdf - highlightOutlineW);
 
-  if (outerAlpha <= 0.0) discard;
+  if (!spriteMode && outerAlpha <= 0.0) discard;
 
   float borderMask = 1.0 - smoothstep(-fw, fw, sdf + borderWidth);
 
   // Player color
   vec4 fillColor;
   vec4 borderColor;
+  // Undarkened owner colour, for the building sprite's flags and roofs.
+  vec3 ownerColor;
 
   if (uAltView != 0 && vUnderConstruction < 0.5) {
     vec3 ac = texelFetch(uAffiliation, ivec2(int(vOwnerID), 1), 0).rgb;
+    ownerColor = ac;
     fillColor = vec4(darken(ac, uFillDarken), 1.0);
     borderColor = vec4(darken(ac, uBorderDarken), 1.0);
   } else if (vUnderConstruction > 0.5) {
+    ownerColor = vec3(198.0/255.0);
     fillColor = vec4(198.0/255.0, 198.0/255.0, 198.0/255.0, 1.0);
     borderColor = vec4(127.0/255.0, 127.0/255.0, 127.0/255.0, 1.0);
   } else {
@@ -161,6 +169,7 @@ void main() {
     int local = int(uLocalPlayerID);
     float u = (vOwnerID + 0.5) / float(PALETTE_SIZE);
     fillColor = texture(uPalette, vec2(u, 0.25));
+    ownerColor = fillColor.rgb;
     // if local player, use territory color because the border color is grey
     borderColor = texture(uPalette, vec2(u, owner == local ? 0.25 : 0.75));
     // Darken via HSV value so hue/saturation stay intact
@@ -184,6 +193,7 @@ void main() {
       vec3 effectRGB;
       if (structuresEffectColor(effOwner, effectRGB)) {
         fillColor.rgb = effectRGB;
+        ownerColor = effectRGB;
         effectActive = true;
       }
     }
@@ -191,44 +201,34 @@ void main() {
 
   vec4 bgColor = mix(borderColor, fillColor, borderMask);
 
-  // Sample icon from atlas (white on transparent)
-  // Only show icon detail when zoomed in enough
-  float iconAlpha = 0.0;
-  if (vZoom > uDotsThreshold) {
-    // Clamp UV to this atlas column to prevent bleeding into neighbours
-    // when uIconFill shrinks the icon (expanding UV range beyond column).
-    float colStart = vAtlasIdx / float(ATLAS_COLS);
-    float colEnd = (vAtlasIdx + 1.0) / float(ATLAS_COLS);
-    vec2 safeUV = vec2(clamp(vAtlasUV.x, colStart, colEnd), clamp(vAtlasUV.y, 0.0, 1.0));
-    vec4 iconSample = texture(uAtlas, safeUV);
-    // Zero out icon outside the valid UV region (clamped pixels would repeat the edge)
-    float inBounds = step(colStart, vAtlasUV.x) * step(vAtlasUV.x, colEnd)
-                   * step(0.0, vAtlasUV.y) * step(vAtlasUV.y, 1.0);
-    // Clip to fill area so icon doesn't bleed into the border ring.
-    iconAlpha = iconSample.a * borderMask * inBounds;
-  }
-
-  // Composite: tinted icon over player-colored shape.
-  // Classic icons (uIconDarken > 0) tint the glyph with a darkened player
-  // color. When the shape itself is already dark, that darkened glyph blends
-  // into the shape (and the dark territory behind it) and becomes unreadable —
-  // so flip the glyph to the light icon color when the fill is too dark.
-  // While the structures effect is animating the fill, the flip becomes a
-  // smooth luminance fade so the glyph cross-fades instead of snapping;
-  // without the effect this is the classic hard threshold, pixel-identical
-  // to having no cosmetic equipped.
-  vec3 glyphColor = uIconColor;
-  if (uIconDarken > 0.0) {
-    float fillLum = dot(fillColor.rgb, vec3(0.299, 0.587, 0.114));
-    if (effectActive) {
-      float t = smoothstep(0.25, 0.45, fillLum); // 0 = dark fill → light glyph
-      glyphColor = mix(uIconColor, darken(fillColor.rgb, uIconDarken), t);
-    } else {
-      glyphColor =
-        fillLum < 0.25 ? uIconColor : darken(fillColor.rgb, uIconDarken);
+  vec3 finalRGB;
+  float shapeAlpha;
+  if (spriteMode) {
+    // The sprite fills the whole quad. Atlas cells are 16x16 art pixels;
+    // snap to them so the building stays crisp at any size.
+    vec2 cellUV = clamp(vLocalPos + 0.5, 0.0, 0.9999);
+    cellUV = (floor(cellUV * 16.0) + 0.5) / 16.0;
+    vec4 sprite = texture(uAtlas, vec2((vAtlasIdx + cellUV.x) / float(ATLAS_COLS), cellUV.y));
+    // Magenta marks the parts painted in the owner's colour; its brightness
+    // carries the shading.
+    bool ownerPaint = sprite.g < 0.1 && abs(sprite.r - sprite.b) < 0.1 && sprite.r > 0.3;
+    vec3 spriteRGB = ownerPaint ? ownerColor * sprite.r : sprite.rgb;
+    if (vUnderConstruction > 0.5) {
+      // Unfinished buildings are pale and colourless.
+      float lum = dot(spriteRGB, vec3(0.299, 0.587, 0.114));
+      spriteRGB = mix(vec3(lum), vec3(0.85), 0.35);
     }
+    // A patch of ground in the owner's colour under the building, so
+    // ownership reads at a glance even when the sprite shows little of it.
+    vec2 base = (vLocalPos - vec2(0.0, 0.38)) / vec2(0.48, 0.13);
+    float ground = 0.7 * (1.0 - smoothstep(0.7, 1.0, dot(base, base)));
+    float spriteA = step(0.5, sprite.a);
+    finalRGB = mix(ownerColor * 0.85, spriteRGB, spriteA);
+    shapeAlpha = max(spriteA, ground);
+  } else {
+    finalRGB = bgColor.rgb;
+    shapeAlpha = bgColor.a * outerAlpha;
   }
-  vec3 finalRGB = mix(bgColor.rgb, glyphColor, iconAlpha);
 
   // Red X overlay for units marked for deletion
   if (vMarkedForDeletion > 0.5) {
@@ -247,15 +247,17 @@ void main() {
   float tintActive = step(0.01, dot(uOutlineColor, uOutlineColor));
   finalRGB = mix(finalRGB, uOutlineColor, tintActive * 0.5);
 
-  float finalAlpha = bgColor.a * outerAlpha * uGhostAlpha * uIconAlpha;
+  float finalAlpha = shapeAlpha * uGhostAlpha * uIconAlpha;
 
   // Build-button hover highlight: white outline on matching types, dim the rest
   if (uHighlightMask != 0) {
     int bit = 1 << int(vAtlasIdx + 0.5);
     if ((uHighlightMask & bit) != 0) {
-      // White outline band outside the shape edge (matches game's OutlineFilter)
-      float shapeEdge = 1.0 - smoothstep(-fw, fw, sdf);           // 1 inside shape, 0 outside
-      float expandedEdge = 1.0 - smoothstep(-fw, fw, sdf - highlightOutlineW); // includes outline band
+      // White outline band outside the shape edge (matches game's OutlineFilter).
+      // Building sprites get a white ring around them instead.
+      float edgeSdf = spriteMode ? dist - 0.44 : sdf;
+      float shapeEdge = 1.0 - smoothstep(-fw, fw, edgeSdf);           // 1 inside shape, 0 outside
+      float expandedEdge = 1.0 - smoothstep(-fw, fw, edgeSdf - highlightOutlineW); // includes outline band
       float outlineBand = expandedEdge - shapeEdge;                // 1 in outline region only
       finalRGB = mix(finalRGB, vec3(1.0), outlineBand);
       finalAlpha = max(finalAlpha, outlineBand);
